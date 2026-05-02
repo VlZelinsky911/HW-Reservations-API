@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: reservations
+          POSTGRES_PASSWORD: reservations
+          POSTGRES_DB: reservations
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reservations"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://reservations:reservations@localhost:5432/reservations
+      JWT_SECRET: ci-test-secret-at-least-16-chars
+      JWT_EXPIRES_IN: 1h
+      MAX_UPLOAD_SIZE_MB: 5
+      LOG_LEVEL: error
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+
+      - name: Lint
+        run: pnpm lint --max-warnings 0
+
+      - name: Type check
+        run: pnpm exec tsc --project tsconfig.build.json --noEmit
+
+      - name: Run migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Unit tests
+        run: pnpm test --no-coverage
+
+      - name: Build
+        run: pnpm build
+
+      - name: Docker build (smoke)
+        run: docker build -t reservations-api:ci .

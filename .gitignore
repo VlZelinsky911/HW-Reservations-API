@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+coverage
+*.log
+.pnpm-store
+
+# Prisma compiled config artifacts (source is prisma.config.ts)
+prisma.config.js
+prisma.config.js.map
+prisma.config.d.ts
+tsconfig.build.tsbuildinfo
+
